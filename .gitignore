@@ -35,6 +35,7 @@ env/
 # Screenshots output
 image/
 */
+*.png
 
 # OS
 .DS_Store

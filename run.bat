@@ -2,12 +2,13 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 
-REM Pythonのパスを設定
-set PYTHON_PATH=C:\Users\nakan\OneDrive\Desktop\local\.venv\Scripts\python.exe
+REM 仮想環境のPythonを使用
+set PYTHON_PATH=%~dp0.venv\Scripts\python.exe
 
-REM Pythonが存在するか確認
+REM 仮想環境が存在するか確認
 if not exist "%PYTHON_PATH%" (
-    echo [エラー] Pythonが見つかりません: %PYTHON_PATH%
+    echo [エラー] 仮想環境が見つかりません
+    echo 先に setup.bat を実行してください
     pause
     exit /b 1
 )

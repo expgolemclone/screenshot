@@ -123,8 +123,7 @@ def click_and_capture(iteration, prev_screenshot=None):
             if screenshot:
                 # 前回のスクリーンショットと比較
                 if prev_screenshot is not None and images_are_same(screenshot, prev_screenshot):
-                    print("前回と同じ内容のため終了します")
-                    return None, False  # 同じ画像 → 終了
+                    return screenshot, "same"  # 同じ画像 → リトライ判定へ
                 
                 # 保存ディレクトリが存在しない場合は作成
                 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -136,7 +135,7 @@ def click_and_capture(iteration, prev_screenshot=None):
                 # 保存
                 screenshot.save(filepath)
                 print(f"保存完了: {filepath}")
-                return screenshot, True  # 新しい画像 → 続行
+                return screenshot, "new"  # 新しい画像 → 続行
             else:
                 print("スクリーンショットの撮影に失敗しました")
         else:
@@ -144,7 +143,7 @@ def click_and_capture(iteration, prev_screenshot=None):
     except Exception as e:
         print(f"エラー発生 (実行 {iteration}): {e}")
     
-    return prev_screenshot, False  # エラー時は前回の画像を維持
+    return prev_screenshot, "error"  # エラー時は前回の画像を維持
 
 def select_click_position():
     """ユーザーにクリック位置を選択させる"""
@@ -363,13 +362,27 @@ def main():
     prev_screenshot = None
     
     for i in range(1, args.max + 1):
-        prev_screenshot, success = click_and_capture(i, prev_screenshot)
+        prev_screenshot, status = click_and_capture(i, prev_screenshot)
         
-        if success:
+        if status == "new":
             success_count += 1
-        elif prev_screenshot is None and i > 1:
-            # 前回と同じ画像だった場合（終了条件）
-            break
+        elif status == "same":
+            # 同じ画像が出た → 5秒待ってリトライ
+            print("同じ画像を検出。5秒待ってリトライします...")
+            time.sleep(5)
+            
+            # リトライ（同じiterationで再度クリック）
+            retry_screenshot, retry_status = click_and_capture(i, prev_screenshot)
+            
+            if retry_status == "same":
+                print("リトライ後も同じ画像のため終了します")
+                break
+            elif retry_status == "new":
+                success_count += 1
+                prev_screenshot = retry_screenshot
+            else:
+                # エラーの場合は続行
+                pass
         
         # 次の実行まで少し待機
         time.sleep(0.1)
