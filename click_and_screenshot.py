@@ -312,21 +312,22 @@ def upload_to_mega(folder_path):
     print(f"アップロード先: MEGA {mega_dest}")
     
     try:
-        # mega-put でフォルダをアップロード（-c でフォルダを作成）
+        # mega-put でフォルダをアップロード（-c でフォルダを作成、-q でバックグラウンド実行）
         result = subprocess.run(
-            f'"{mega_put}" -c "{folder_path}" {mega_dest}',
-            capture_output=True, text=True, timeout=600, shell=True  # 10分のタイムアウト
+            f'"{mega_put}" -c -q "{folder_path}" {mega_dest}',
+            capture_output=True, text=True, timeout=60, shell=True  # キュー追加は1分で十分
         )
         
         if result.returncode == 0:
-            print(f"アップロード完了!")
+            print(f"アップロードをキューに追加しました!")
             print(f"MEGA上のパス: {mega_dest}/{folder_name}")
+            print("※バックグラウンドでアップロード中です。mega-transfers コマンドで進捗確認できます。")
             return True
         else:
             print(f"アップロードエラー: {result.stderr}")
             return False
     except subprocess.TimeoutExpired:
-        print("アップロードがタイムアウトしました（10分以上）")
+        print("アップロードのキュー追加がタイムアウトしました")
         return False
     except Exception as e:
         print(f"アップロードエラー: {e}")
