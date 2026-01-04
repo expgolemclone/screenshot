@@ -1,5 +1,5 @@
 """
-指定座標をクリックし、そのウィンドウのスクリーンショットを保存するプログラム
+矢印キー入力または指定座標クリックでページを進め、ウィンドウのスクリーンショットを保存するプログラム
 前回と同じスクリーンショットになったら自動終了
 完了後、フォルダ名を英語にリネームしてMEGAにアップロード
 使用法: python click_and_screenshot.py
@@ -30,14 +30,16 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SCREENSHOT_BASE_DIR = SCRIPT_DIR
 
 # 設定
-CLICK_POSITIONS = {
-    1: {"x": 279, "y": 1084, "description": "位置1 (X: 279, Y: 1084)"},
-    2: {"x": 3568, "y": 1087, "description": "位置2 (X: 3568, Y: 1087)"},
+ACTION_CHOICES = {
+    1: {"type": "key", "key": "left", "description": "左矢印キー"},
+    2: {"type": "key", "key": "right", "description": "右矢印キー"},
 }
 SAVE_DIR = os.path.join(SCRIPT_DIR, "image")  # デフォルト値（後で更新される）
 MEGA_REMOTE_PATH = "/lG93yLBL"  # MEGAのアップロード先フォルダID
 
 # グローバル変数（選択後に設定）
+ACTION_TYPE = None  # "key" or "click"
+ACTION_KEY = None  # "left" / "right" (when ACTION_TYPE == "key")
 CLICK_X = None
 CLICK_Y = None
 
@@ -104,15 +106,23 @@ def click_and_capture(iteration, prev_screenshot=None):
             print("1ページ目: クリックせずにアクティブウィンドウをスクリーンショット")
             window = gw.getActiveWindow()
         else:
-            # 2回目以降は指定座標をクリック
-            print(f"クリック: X={CLICK_X}, Y={CLICK_Y}")
-            pyautogui.click(CLICK_X, CLICK_Y)
-            
-            # クリック後少し待機（ウィンドウがアクティブになるのを待つ）
-            time.sleep(0.1)
-            
-            # クリック位置にあるウィンドウを取得
-            window = get_window_at_position(CLICK_X, CLICK_Y)
+            if ACTION_TYPE == "key":
+                print(f"キー入力: {ACTION_KEY}")
+                pyautogui.press(ACTION_KEY)
+
+                # 入力後少し待機（画面更新を待つ）
+                time.sleep(0.1)
+                window = gw.getActiveWindow()
+            else:
+                # 2回目以降は指定座標をクリック
+                print(f"クリック: X={CLICK_X}, Y={CLICK_Y}")
+                pyautogui.click(CLICK_X, CLICK_Y)
+
+                # クリック後少し待機（ウィンドウがアクティブになるのを待つ）
+                time.sleep(0.1)
+
+                # クリック位置にあるウィンドウを取得
+                window = get_window_at_position(CLICK_X, CLICK_Y)
         
         if window:
             print(f"ウィンドウ検出: {window.title}")
@@ -146,24 +156,29 @@ def click_and_capture(iteration, prev_screenshot=None):
     return prev_screenshot, "error"  # エラー時は前回の画像を維持
 
 def select_click_position():
-    """ユーザーにクリック位置を選択させる"""
-    global CLICK_X, CLICK_Y
+    """ユーザーに操作方法を選択させる"""
+    global ACTION_TYPE, ACTION_KEY, CLICK_X, CLICK_Y
     
-    print("クリック位置を選択してください:")
-    for num, pos in CLICK_POSITIONS.items():
-        print(f"  {num}: {pos['description']}")
-    print("  3: カスタム座標を入力")
+    print("操作を選択してください:")
+    for num, action in ACTION_CHOICES.items():
+        print(f"  {num}: {action['description']}")
+    print("  3: カスタム座標をクリック")
     
     while True:
         try:
             choice = input("番号を入力 (1, 2, or 3): ").strip()
             choice_num = int(choice)
-            if choice_num in CLICK_POSITIONS:
-                CLICK_X = CLICK_POSITIONS[choice_num]["x"]
-                CLICK_Y = CLICK_POSITIONS[choice_num]["y"]
-                print(f"選択: {CLICK_POSITIONS[choice_num]['description']}")
+            if choice_num in ACTION_CHOICES:
+                ACTION_TYPE = "key"
+                ACTION_KEY = ACTION_CHOICES[choice_num]["key"]
+                CLICK_X = None
+                CLICK_Y = None
+                print(f"選択: {ACTION_CHOICES[choice_num]['description']}")
                 return
             elif choice_num == 3:
+                ACTION_TYPE = "click"
+                ACTION_KEY = None
+
                 # カスタム座標を入力
                 while True:
                     try:
@@ -334,7 +349,7 @@ def upload_to_mega(folder_path):
         return False
 
 def main():
-    global CLICK_X, CLICK_Y, SAVE_DIR
+    global ACTION_TYPE, ACTION_KEY, CLICK_X, CLICK_Y, SAVE_DIR
     
     # まず英語のフォルダ名を取得
     english_name = get_english_folder_name()
@@ -342,16 +357,19 @@ def main():
     # 保存先を英語名のフォルダに設定
     SAVE_DIR = os.path.join(SCREENSHOT_BASE_DIR, english_name)
     
-    # まずクリック位置を選択
+    # まず操作を選択
     select_click_position()
     
     parser = argparse.ArgumentParser(description="クリック＆スクリーンショット（前回と同じ内容で自動終了）")
-    parser.add_argument("--max", type=int, default=1000, help="最大繰り返し回数（デフォルト: 1000）")
+    parser.add_argument("--max", type=int, default=10000, help="最大繰り返し回数（デフォルト: 10000）")
     args = parser.parse_args()
     
     print(f"\nクリック＆スクリーンショット開始")
     print(f"最大繰り返し回数: {args.max}")
-    print(f"クリック座標: X={CLICK_X}, Y={CLICK_Y}")
+    if ACTION_TYPE == "key":
+        print(f"操作: 矢印キー ({ACTION_KEY})")
+    else:
+        print(f"操作: クリック (X={CLICK_X}, Y={CLICK_Y})")
     print(f"保存先: {SAVE_DIR}")
     print(f"※前回と同じスクリーンショットになったら自動終了します")
     
@@ -410,7 +428,7 @@ if __name__ == "__main__":
     main()
 
 # 使用例:
-# 最大1000回まで（同じ画像で自動終了）
+# 最大10000回まで（同じ画像で自動終了）
 # python click_and_screenshot.py
 
 # 最大50回まで

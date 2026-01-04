@@ -1,6 +1,6 @@
 # Screenshot Tool
 
-指定座標を自動クリックしてスクリーンショットを連続撮影するツールです。
+矢印キー入力または指定座標クリックでページを進め、アクティブウィンドウのスクリーンショットを連続撮影するツールです。
 同じ画像になったら自動終了し、MEGAにアップロードできます。
 
 ## セットアップ方法
@@ -25,10 +25,32 @@ setup.bat
 `run.bat` をダブルクリック
 
 1. 保存フォルダの英語名を入力
-2. クリック位置を選択（プリセットまたはカスタム座標）
-3. 3秒後に自動撮影開始
-4. 前回と同じスクリーンショットになったら自動終了
+2. ページ送り操作を選択（左/右矢印キー or カスタム座標クリック）
+3. 10秒後に自動撮影開始（開始前に対象ウィンドウをアクティブにしてください）
+4. 前回と同じスクリーンショットになったらリトライし、それでも同じなら終了
 5. MEGAへのアップロードを選択可能
+
+オプション例:
+
+- `run.bat --max 50` （最大50回）
+
+### 既存フォルダのアップロード (upload.py)
+
+スクショ済みフォルダを番号で選択して MEGA にアップロードできます。
+
+```powershell
+# 例: 仮想環境 (setup.bat 済みの場合)
+.\.venv\Scripts\python.exe upload.py
+
+# 送信先を指定
+.\.venv\Scripts\python.exe upload.py --dest /book
+
+# フォルダ名/パスを指定（番号選択をスキップ）
+.\.venv\Scripts\python.exe upload.py --folder permutation_city
+
+# 既に存在するフォルダはスキップ
+.\.venv\Scripts\python.exe upload.py --skip-if-exists
+```
 
 ### マウス座標確認 (mouse_tracker.py)
 
@@ -76,6 +98,7 @@ screenshot/
 ├── requirements.txt     # 依存パッケージ
 ├── click_and_screenshot.py
 ├── mouse_tracker.py
+├── upload.py
 └── README.md
 ```
 
