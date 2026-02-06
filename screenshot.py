@@ -2,7 +2,7 @@
 矢印キー入力または指定座標クリックでページを進め、ウィンドウのスクリーンショットを保存するプログラム
 前回と同じスクリーンショットになったら自動終了
 完了後、フォルダ名を英語にリネームしてMEGAにアップロード
-使用法: python click_and_screenshot.py
+使用法: python screenshot.py
 """
 
 import argparse
@@ -16,7 +16,7 @@ import getpass
 from datetime import datetime
 import pyautogui
 import pygetwindow as gw
-from PIL import ImageGrab, ImageChops
+from PIL import ImageGrab, ImageChops, Image
 import numpy as np
 
 # pyautoguiのフェイルセーフを無効化（マウスが角に行っても停止しない）
@@ -80,9 +80,51 @@ def get_window_at_position(x, y):
         print(f"ウィンドウ取得エラー: {e}")
     return None
 
+def capture_window_via_clipboard(window, timeout=1.0, interval=0.05):
+    """Alt+PrintScreen でOSのクリップボード経由キャプチャ（黒画面対策）"""
+    try:
+        # 最小化されている場合は復元
+        try:
+            if getattr(window, "isMinimized", False):
+                window.restore()
+                time.sleep(0.1)
+        except Exception:
+            pass
+
+        # 念のためアクティブ化
+        try:
+            window.activate()
+            time.sleep(0.05)
+        except Exception:
+            pass
+
+        # OSキャプチャ（Alt+PrintScreen）
+        pyautogui.hotkey("alt", "printscreen")
+
+        expected_size = (window.right - window.left, window.bottom - window.top)
+        start = time.time()
+        while time.time() - start < timeout:
+            img = ImageGrab.grabclipboard()
+            if isinstance(img, Image.Image):
+                # サイズが一致すれば即採用
+                if img.size == expected_size:
+                    return img
+                # サイズが違っても画像が取れていれば採用
+                if img.size[0] > 0 and img.size[1] > 0:
+                    return img
+            time.sleep(interval)
+    except Exception as e:
+        print(f"クリップボード取得エラー: {e}")
+    return None
+
 def screenshot_window(window):
     """ウィンドウ全体のスクリーンショットを撮る"""
     try:
+        # まずOSのクリップボードキャプチャを試す（黒画面対策）
+        clipboard_shot = capture_window_via_clipboard(window)
+        if clipboard_shot is not None:
+            return clipboard_shot
+
         # ウィンドウの領域を取得
         left = window.left
         top = window.top
@@ -429,7 +471,7 @@ if __name__ == "__main__":
 
 # 使用例:
 # 最大10000回まで（同じ画像で自動終了）
-# python click_and_screenshot.py
+# python screenshot.py
 
 # 最大50回まで
-# python click_and_screenshot.py --max 50
+# python screenshot.py --max 50
