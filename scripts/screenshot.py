@@ -100,7 +100,9 @@ def screenshot_window(window: dict, filepath: str) -> Image.Image | None:
             msg = (result.stderr or result.stdout or "").strip()
             print(f"grim エラー: {msg}")
             return None
-        return Image.open(filepath)
+        img = Image.open(filepath)
+        img.load()
+        return img
     except (subprocess.TimeoutExpired, OSError) as e:
         print(f"スクリーンショットエラー: {e}")
         return None
