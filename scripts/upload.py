@@ -28,6 +28,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from config import CONTENTS_DIR, MEGA_REMOTE_DEST
 
 
@@ -294,6 +296,8 @@ def ensure_login(mega_login: str | None, mega_whoami: str) -> None:
         raise RuntimeError("パスワードが空です")
 
     try:
+        # NOTE: MEGAcmdはCLI引数でしかパスワードを受け付けないため、
+        # psコマンドで他ユーザーから一時的に見える可能性がある
         result = run_megacmd(mega_login, [email, password], timeout_sec=60)
     except subprocess.TimeoutExpired:
         raise RuntimeError("ログインがタイムアウトしました")

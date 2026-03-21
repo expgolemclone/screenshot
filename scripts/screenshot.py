@@ -5,10 +5,16 @@
 """
 
 import argparse
+import sys
 import time
 import os
-import signal
 import re
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import threading
+
 import pyautogui
 import pygetwindow as gw
 from PIL import ImageGrab, Image
@@ -16,18 +22,26 @@ import numpy as np
 
 from config import CONTENTS_DIR
 
-# pyautoguiのフェイルセーフを無効化（マウスが角に行っても停止しない）
-pyautogui.FAILSAFE = False
+# 停止フラグ（Enterキーで True になる）
+stop_requested = False
 
-# Ctrl+C (SIGINT) を無視する
-signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+def _watch_stdin():
+    """バックグラウンドでEnterキー入力を監視し、停止フラグを立てる。"""
+    global stop_requested
+    try:
+        input()  # Enterキー待ち
+        stop_requested = True
+        print("\n[Enterキー検出] 停止します...")
+    except EOFError:
+        pass
 
 # 設定
 ACTION_CHOICES = {
     1: {"type": "key", "key": "left", "description": "左矢印キー"},
     2: {"type": "key", "key": "right", "description": "右矢印キー"},
 }
-SAVE_DIR = str(CONTENTS_DIR / "image")  # デフォルト値（後で更新される）
+SAVE_DIR = None  # main() で設定される
 
 # グローバル変数（選択後に設定）
 ACTION_TYPE = None  # "key" or "click"
@@ -130,64 +144,51 @@ def screenshot_window(window):
         print(f"スクリーンショットエラー: {e}")
         return None
 
-def click_and_capture(iteration, prev_screenshot=None):
-    """クリックしてスクリーンショットを保存。前回と同じならNone、違えばscreenshotを返す"""
-    print(f"\n--- 実行 {iteration} ---")
-    
+def advance_page():
+    """ページを1つ進める（キー入力またはクリック）"""
+    if ACTION_TYPE == "key":
+        print(f"キー入力: {ACTION_KEY}")
+        pyautogui.press(ACTION_KEY)
+        time.sleep(0.1)
+    else:
+        print(f"クリック: X={CLICK_X}, Y={CLICK_Y}")
+        pyautogui.click(CLICK_X, CLICK_Y)
+        time.sleep(0.1)
+
+
+def capture_current(iteration, prev_screenshot=None):
+    """現在の画面をスクリーンショットして保存。ページ送りはしない。"""
     try:
-        # 1回目はクリックせずにアクティブウィンドウをスクショ
-        if iteration == 1:
-            print("1ページ目: クリックせずにアクティブウィンドウをスクリーンショット")
+        if ACTION_TYPE == "click" and CLICK_X is not None:
+            window = get_window_at_position(CLICK_X, CLICK_Y)
+        else:
             window = gw.getActiveWindow()
-        else:
-            if ACTION_TYPE == "key":
-                print(f"キー入力: {ACTION_KEY}")
-                pyautogui.press(ACTION_KEY)
 
-                # 入力後少し待機（画面更新を待つ）
-                time.sleep(0.1)
-                window = gw.getActiveWindow()
-            else:
-                # 2回目以降は指定座標をクリック
-                print(f"クリック: X={CLICK_X}, Y={CLICK_Y}")
-                pyautogui.click(CLICK_X, CLICK_Y)
+        if not window:
+            print("ウィンドウが見つかりませんでした")
+            return prev_screenshot, "error"
 
-                # クリック後少し待機（ウィンドウがアクティブになるのを待つ）
-                time.sleep(0.1)
+        print(f"ウィンドウ検出: {window.title}")
+        screenshot = screenshot_window(window)
 
-                # クリック位置にあるウィンドウを取得
-                window = get_window_at_position(CLICK_X, CLICK_Y)
-        
-        if window:
-            print(f"ウィンドウ検出: {window.title}")
-            
-            # 3. スクリーンショットを撮る
-            screenshot = screenshot_window(window)
-            
-            if screenshot:
-                # 前回のスクリーンショットと比較
-                if prev_screenshot is not None and images_are_same(screenshot, prev_screenshot):
-                    return screenshot, "same"  # 同じ画像 → リトライ判定へ
-                
-                # 保存ディレクトリが存在しない場合は作成
-                os.makedirs(SAVE_DIR, exist_ok=True)
-                
-                # ファイル名を生成（連番のみでシンプルに）
-                filename = f"screenshot_{iteration:04d}.png"
-                filepath = os.path.join(SAVE_DIR, filename)
-                
-                # 保存
-                screenshot.save(filepath)
-                print(f"保存完了: {filepath}")
-                return screenshot, "new"  # 新しい画像 → 続行
-            else:
-                print("スクリーンショットの撮影に失敗しました")
-        else:
-            print("指定座標にウィンドウが見つかりませんでした")
+        if not screenshot:
+            print("スクリーンショットの撮影に失敗しました")
+            return prev_screenshot, "error"
+
+        # 前回のスクリーンショットと比較
+        if prev_screenshot is not None and images_are_same(screenshot, prev_screenshot):
+            return screenshot, "same"
+
+        # 保存
+        os.makedirs(SAVE_DIR, exist_ok=True)
+        filename = f"screenshot_{iteration:04d}.png"
+        filepath = os.path.join(SAVE_DIR, filename)
+        screenshot.save(filepath)
+        print(f"保存完了: {filepath}")
+        return screenshot, "new"
     except Exception as e:
         print(f"エラー発生 (実行 {iteration}): {e}")
-    
-    return prev_screenshot, "error"  # エラー時は前回の画像を維持
+        return prev_screenshot, "error"
 
 def select_click_position():
     """ユーザーに操作方法を選択させる"""
@@ -280,35 +281,46 @@ def main():
     print("\n10秒後に開始します. kindleのウィンドウをアクティブにしてください.")
     time.sleep(10)
     
+    # Enterキーで停止できる監視スレッドを開始
+    watcher = threading.Thread(target=_watch_stdin, daemon=True)
+    watcher.start()
+    print("※ Enterキーで停止できます")
+
     success_count = 0
     prev_screenshot = None
-    
+
     for i in range(1, args.max + 1):
-        prev_screenshot, status = click_and_capture(i, prev_screenshot)
-        
+        if stop_requested:
+            print("\n停止が要求されました")
+            break
+
+        print(f"\n--- 実行 {i} ---")
+
+        # 1回目はページ送りせずにスクショ
+        if i > 1:
+            advance_page()
+
+        prev_screenshot, status = capture_current(i, prev_screenshot)
+
         if status == "new":
             success_count += 1
         elif status == "same":
-            # 同じ画像が出た → 5秒待ってリトライ
+            # 同じ画像が出た → 5秒待ってリトライ（ページ送りなし）
             print("同じ画像を検出。5秒待ってリトライします...")
             time.sleep(5)
-            
-            # リトライ（同じiterationで再度クリック）
-            retry_screenshot, retry_status = click_and_capture(i, prev_screenshot)
-            
+
+            retry_screenshot, retry_status = capture_current(i, prev_screenshot)
+
             if retry_status == "same":
                 print("リトライ後も同じ画像のため終了します")
                 break
             elif retry_status == "new":
                 success_count += 1
                 prev_screenshot = retry_screenshot
-            else:
-                # エラーの場合は続行
-                pass
-        
+
         # 次の実行まで少し待機
         time.sleep(0.1)
-    
+
     print(f"\n完了: {success_count} 回保存しました")
     
     if success_count > 0 and os.path.exists(SAVE_DIR):
