@@ -7,11 +7,11 @@
 - Python は仮想環境不要 (標準ライブラリのみ使用)
 
 使い方:
-  python upload.py
-  python upload.py --dest /book
-  python upload.py --folder permutation_city
-  python upload.py --skip-if-exists
-  python upload.py --dry-run
+  uv run python -m scripts.upload
+  uv run python -m scripts.upload --dest /book
+  uv run python -m scripts.upload --folder permutation_city
+  uv run python -m scripts.upload --skip-if-exists
+  uv run python -m scripts.upload --dry-run
 """
 
 from __future__ import annotations
@@ -28,9 +28,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from config import CONTENTS_DIR, MEGA_REMOTE_DEST
+from .config import CONTENTS_DIR, MEGA_REMOTE_DEST
 
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
@@ -285,13 +283,21 @@ def ensure_login(mega_login: str | None, mega_whoami: str) -> None:
         raise RuntimeError("MEGAにログインしていません (mega-login が見つかりません)")
 
     print("MEGAにログインしていません。ログインします。")
-    try:
-        email = input("メールアドレス: ").strip()
-    except EOFError:
-        raise RuntimeError("入力が取得できないためログインできません")
+
+    # 環境変数から認証情報を取得（設定されていなければ対話入力にフォールバック）
+    email = os.environ.get("MEGA_EMAIL", "").strip()
+    password = os.environ.get("MEGA_PASSWORD", "").strip()
+
+    if not email:
+        try:
+            email = input("メールアドレス: ").strip()
+        except EOFError:
+            raise RuntimeError("入力が取得できないためログインできません")
     if not email:
         raise RuntimeError("メールアドレスが空です")
-    password = getpass.getpass("パスワード: ")
+
+    if not password:
+        password = getpass.getpass("パスワード: ")
     if not password:
         raise RuntimeError("パスワードが空です")
 
@@ -341,6 +347,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="アップロード先に同名フォルダが既にある場合はアップロードしない",
     )
+    parser.add_argument("--timeout", type=int, default=600, help="アップロードのタイムアウト秒数 (デフォルト: 600)")
     parser.add_argument("--yes", action="store_true", help="確認プロンプトをスキップ")
     parser.add_argument("--dry-run", action="store_true", help="実行せずにコマンドだけ表示")
     args = parser.parse_args(argv)
@@ -428,7 +435,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         print(f"\nアップロード中: {folder}")
         try:
-            upload_folder(mega_put, folder, dest, dry_run=args.dry_run)
+            upload_folder(mega_put, folder, dest, dry_run=args.dry_run, timeout_sec=args.timeout)
         except RuntimeError as e:
             print(f"[エラー] {e}")
             return 5

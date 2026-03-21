@@ -8,11 +8,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from .config import PROJECT_ROOT
 
-from config import PROJECT_ROOT
-
-VERIFY_PACKAGES = ["pyautogui", "pygetwindow", "PIL", "numpy"]
+VERIFY_PACKAGES = ["PIL", "numpy"]
 
 
 def find_uv():
@@ -62,8 +60,8 @@ def main():
     print("  セットアップ完了")
     print("============================================")
     print("\n実行方法:")
-    print("  uv run python scripts/screenshot.py")
-    print("  uv run python scripts/upload.py")
+    print("  uv run python -m scripts.screenshot")
+    print("  uv run python -m scripts.upload")
     return 0
 
 
