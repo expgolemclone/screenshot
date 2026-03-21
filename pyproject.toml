@@ -14,6 +14,11 @@ books-screenshot = "scripts.screenshot:main"
 books-upload = "scripts.upload:main"
 books-setup = "scripts.setup:main"
 
+[dependency-groups]
+dev = [
+    "pytest>=8,<9",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
