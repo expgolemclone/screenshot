@@ -26,7 +26,9 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
+
+from config import CONTENTS_DIR, MEGA_REMOTE_DEST
 
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
@@ -182,24 +184,27 @@ def find_megacmd_command(cmd: str) -> str | None:
     if found:
         return found
 
-    # 2) よくあるインストール場所を探索
-    localappdata = os.environ.get("LOCALAPPDATA", "")
-    candidates = [
-        Path(localappdata) / "MEGAcmd" if localappdata else None,
-        Path(r"C:\Program Files\MEGAcmd"),
-        Path(r"C:\Program Files (x86)\MEGAcmd"),
-    ]
-    for folder in [c for c in candidates if c]:
-        for ext in [".bat", ".exe"]:
-            p = folder / f"{cmd}{ext}"
-            if p.exists():
-                return str(p)
+    # 2) Windows: よくあるインストール場所を探索
+    if sys.platform == "win32":
+        localappdata = os.environ.get("LOCALAPPDATA", "")
+        candidates = [
+            Path(localappdata) / "MEGAcmd" if localappdata else None,
+            Path(r"C:\Program Files\MEGAcmd"),
+            Path(r"C:\Program Files (x86)\MEGAcmd"),
+        ]
+        for folder in [c for c in candidates if c]:
+            for ext in [".bat", ".exe"]:
+                p = folder / f"{cmd}{ext}"
+                if p.exists():
+                    return str(p)
     return None
 
 
 def run_megacmd(cmd_path: str, args: Sequence[str], timeout_sec: int = 60) -> subprocess.CompletedProcess[str]:
-    # .bat を確実に実行できるように cmd.exe 経由で呼ぶ
-    full_cmd = ["cmd.exe", "/c", cmd_path, *args]
+    if sys.platform == "win32":
+        full_cmd = ["cmd.exe", "/c", cmd_path, *args]
+    else:
+        full_cmd = [cmd_path, *args]
     return subprocess.run(
         full_cmd,
         capture_output=True,
@@ -323,12 +328,9 @@ def resolve_folder_arg(base_dir: Path, folder_arg: str) -> Path:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    project_root = Path(__file__).resolve().parent.parent
-    contents_dir = project_root / "contents"
-
     parser = argparse.ArgumentParser(description="スクショ済みフォルダを選択して MEGA にアップロードします。")
-    parser.add_argument("--base", default=str(contents_dir), help="検索するベースディレクトリ (デフォルト: contents/)")
-    parser.add_argument("--dest", default="/book", help="MEGAのアップロード先 (デフォルト: /book)")
+    parser.add_argument("--base", default=str(CONTENTS_DIR), help="検索するベースディレクトリ (デフォルト: contents/)")
+    parser.add_argument("--dest", default=MEGA_REMOTE_DEST, help=f"MEGAのアップロード先 (デフォルト: {MEGA_REMOTE_DEST})")
     parser.add_argument("--folder", help="アップロードするフォルダ名 or パス (指定時は番号選択をスキップ)")
     parser.add_argument(
         "--skip-if-exists",

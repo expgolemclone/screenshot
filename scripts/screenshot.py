@@ -1,23 +1,20 @@
 """
 矢印キー入力または指定座標クリックでページを進め、ウィンドウのスクリーンショットを保存するプログラム
 前回と同じスクリーンショットになったら自動終了
-完了後、フォルダ名を英語にリネームしてMEGAにアップロード
-使用法: python screenshot.py
+使用法: uv run python scripts/screenshot.py
 """
 
 import argparse
 import time
 import os
 import signal
-import subprocess
 import re
-import shutil
-import getpass
-from datetime import datetime
 import pyautogui
 import pygetwindow as gw
-from PIL import ImageGrab, ImageChops, Image
+from PIL import ImageGrab, Image
 import numpy as np
+
+from config import CONTENTS_DIR
 
 # pyautoguiのフェイルセーフを無効化（マウスが角に行っても停止しない）
 pyautogui.FAILSAFE = False
@@ -25,18 +22,12 @@ pyautogui.FAILSAFE = False
 # Ctrl+C (SIGINT) を無視する
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-# プロジェクトルート (scripts/ の親) を基準にしたパス設定
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-CONTENTS_DIR = os.path.join(PROJECT_ROOT, "contents")
-
 # 設定
 ACTION_CHOICES = {
     1: {"type": "key", "key": "left", "description": "左矢印キー"},
     2: {"type": "key", "key": "right", "description": "右矢印キー"},
 }
-SAVE_DIR = os.path.join(CONTENTS_DIR, "image")  # デフォルト値（後で更新される）
-MEGA_REMOTE_PATH = "/lG93yLBL"  # MEGAのアップロード先フォルダID
+SAVE_DIR = str(CONTENTS_DIR / "image")  # デフォルト値（後で更新される）
 
 # グローバル変数（選択後に設定）
 ACTION_TYPE = None  # "key" or "click"
@@ -260,137 +251,6 @@ def get_english_folder_name():
             print("英数字、アンダースコア(_)、ハイフン(-)のみ使用可能です")
 
 
-def rename_folder_to_english(original_path, new_name):
-    """フォルダを英語名にリネーム"""
-    parent_dir = os.path.dirname(original_path)
-    new_path = os.path.join(parent_dir, new_name)
-    
-    # 同名フォルダが存在する場合は連番を追加
-    if os.path.exists(new_path):
-        counter = 1
-        while os.path.exists(f"{new_path}_{counter}"):
-            counter += 1
-        new_path = f"{new_path}_{counter}"
-    
-    try:
-        os.rename(original_path, new_path)
-        print(f"フォルダをリネーム: {original_path} → {new_path}")
-        return new_path
-    except Exception as e:
-        print(f"リネームエラー: {e}")
-        return original_path
-
-
-def find_megacmd():
-    """MEGAcmdの実行ファイルを探す"""
-    possible_paths = [
-        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'MEGAcmd'),
-        r'C:\Users\nakan\AppData\Local\MEGAcmd',
-        r'C:\Program Files\MEGAcmd',
-        r'C:\Program Files (x86)\MEGAcmd',
-    ]
-    
-    for path in possible_paths:
-        # .batファイルを優先して探す
-        mega_put = os.path.join(path, 'mega-put.bat')
-        if os.path.exists(mega_put):
-            return path
-        # .exeファイルもチェック
-        mega_put = os.path.join(path, 'mega-put.exe')
-        if os.path.exists(mega_put):
-            return path
-    return None
-
-
-def get_mega_cmd(megacmd_path, cmd_name):
-    """MEGAcmdのコマンドパスを取得（.batを優先）"""
-    bat_path = os.path.join(megacmd_path, f'{cmd_name}.bat')
-    if os.path.exists(bat_path):
-        return bat_path
-    exe_path = os.path.join(megacmd_path, f'{cmd_name}.exe')
-    if os.path.exists(exe_path):
-        return exe_path
-    return None
-
-
-def upload_to_mega(folder_path):
-    """フォルダをMEGAにアップロード"""
-    print("\n=== MEGAへのアップロード ===")
-    
-    megacmd_path = find_megacmd()
-    if not megacmd_path:
-        print("エラー: MEGAcmdが見つかりません")
-        print("https://mega.io/cmd からMEGAcmdをインストールしてください")
-        return False
-    
-    mega_put = get_mega_cmd(megacmd_path, 'mega-put')
-    mega_login = get_mega_cmd(megacmd_path, 'mega-login')
-    mega_whoami = get_mega_cmd(megacmd_path, 'mega-whoami')
-    
-    if not mega_put or not mega_whoami:
-        print("エラー: MEGAcmdのコマンドが見つかりません")
-        return False
-    
-    # ログイン状態を確認
-    try:
-        result = subprocess.run([mega_whoami], capture_output=True, text=True, timeout=30, shell=True)
-        if result.returncode != 0 or "Not logged in" in result.stderr:
-            print("MEGAにログインしていません。ログインしてください:")
-            print("（MEGAアカウントを持っていない場合は https://mega.nz で作成してください）")
-            email = input("メールアドレス: ").strip()
-            if not email:
-                print("メールアドレスが入力されませんでした。アップロードをスキップします。")
-                return False
-            password = getpass.getpass("パスワード: ")
-            if not password:
-                print("パスワードが入力されませんでした。アップロードをスキップします。")
-                return False
-            
-            login_result = subprocess.run(
-                [mega_login, email, password],
-                capture_output=True, text=True, timeout=60, shell=True
-            )
-            if login_result.returncode != 0:
-                print(f"ログインエラー: {login_result.stderr}")
-                return False
-            print("ログイン成功!")
-        else:
-            print(f"ログイン中: {result.stdout.strip()}")
-    except subprocess.TimeoutExpired:
-        print("MEGAサーバーへの接続がタイムアウトしました")
-        return False
-    except Exception as e:
-        print(f"ログイン確認エラー: {e}")
-        return False
-    
-    # アップロード実行
-    folder_name = os.path.basename(folder_path)
-    mega_dest = "/book"  # MEGAのアップロード先フォルダ
-    print(f"アップロード中: {folder_path}")
-    print(f"アップロード先: MEGA {mega_dest}")
-    
-    try:
-        # mega-put でフォルダをアップロード（-c でフォルダを作成、-q でバックグラウンド実行）
-        result = subprocess.run(
-            f'"{mega_put}" -c -q "{folder_path}" {mega_dest}',
-            capture_output=True, text=True, timeout=60, shell=True  # キュー追加は1分で十分
-        )
-        
-        if result.returncode == 0:
-            print(f"アップロードをキューに追加しました!")
-            print(f"MEGA上のパス: {mega_dest}/{folder_name}")
-            print("※バックグラウンドでアップロード中です。mega-transfers コマンドで進捗確認できます。")
-            return True
-        else:
-            print(f"アップロードエラー: {result.stderr}")
-            return False
-    except subprocess.TimeoutExpired:
-        print("アップロードのキュー追加がタイムアウトしました")
-        return False
-    except Exception as e:
-        print(f"アップロードエラー: {e}")
-        return False
-
 def main():
     global ACTION_TYPE, ACTION_KEY, CLICK_X, CLICK_Y, SAVE_DIR
     
@@ -398,7 +258,7 @@ def main():
     english_name = get_english_folder_name()
     
     # 保存先を英語名のフォルダに設定
-    SAVE_DIR = os.path.join(CONTENTS_DIR, english_name)
+    SAVE_DIR = str(CONTENTS_DIR / english_name)
     
     # まず操作を選択
     select_click_position()
@@ -451,21 +311,9 @@ def main():
     
     print(f"\n完了: {success_count} 回保存しました")
     
-    # スクリーンショットが保存された場合のみアップロード処理
     if success_count > 0 and os.path.exists(SAVE_DIR):
         print(f"\n保存フォルダ: {SAVE_DIR}")
-        
-        # MEGAへのアップロード確認
-        try:
-            upload_choice = input("\nMEGAにアップロードしますか? (y/n): ").strip().lower()
-            if upload_choice == 'y':
-                upload_to_mega(SAVE_DIR)
-            else:
-                print("アップロードをスキップしました")
-        except EOFError:
-            print("\n入力がないため、アップロードをスキップしました")
-    else:
-        print("スクリーンショットが保存されなかったため、アップロードはスキップします")
+        print("MEGAへアップロードするには: uv run python scripts/upload.py")
 
 if __name__ == "__main__":
     main()
