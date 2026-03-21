@@ -205,8 +205,8 @@ def remote_join(dest: str, name: str) -> str:
 def remote_entry_exists(mega_ls: str, remote_path: str) -> bool:
     try:
         result = run_megacmd(mega_ls, [remote_path], timeout_sec=30)
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("MEGAサーバーへの接続がタイムアウトしました")
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError("MEGAサーバーへの接続がタイムアウトしました") from e
 
     if result.returncode == 0:
         return True
@@ -219,13 +219,6 @@ def remote_entry_exists(mega_ls: str, remote_path: str) -> bool:
         "cannot find",
         "does not exist",
         "not exist",
-        "no existe",
-        "no encontrado",
-        "non trouvé",
-        "nicht gefunden",
-        "不存在",
-        "見つかりません",
-        "みつかりません",
     ]
     if any(sig in text for sig in not_found_signals):
         return False
@@ -237,8 +230,8 @@ def remote_entry_exists(mega_ls: str, remote_path: str) -> bool:
 def is_logged_in(mega_whoami: str) -> bool:
     try:
         result = run_megacmd(mega_whoami, [], timeout_sec=30)
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("MEGAサーバーへの接続がタイムアウトしました")
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError("MEGAサーバーへの接続がタイムアウトしました") from e
 
     out = (result.stdout or "").strip()
     err = (result.stderr or "").strip()
@@ -282,8 +275,8 @@ def ensure_login(mega_login: str | None, mega_whoami: str) -> None:
         # NOTE: MEGAcmdはCLI引数でしかパスワードを受け付けないため、
         # psコマンドで他ユーザーから一時的に見える可能性がある
         result = run_megacmd(mega_login, [email, password], timeout_sec=60)
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("ログインがタイムアウトしました")
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError("ログインがタイムアウトしました") from e
 
     if result.returncode != 0:
         msg = (result.stderr or result.stdout or "").strip()
@@ -299,8 +292,8 @@ def upload_folder(
 
     try:
         result = run_megacmd(mega_put, ["-c", "-q", str(folder_path), dest], timeout_sec=timeout_sec)
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("アップロードのキュー追加がタイムアウトしました")
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError("アップロードのキュー追加がタイムアウトしました") from e
 
     if result.returncode != 0:
         msg = (result.stderr or result.stdout or "").strip()
