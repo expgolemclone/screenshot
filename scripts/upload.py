@@ -22,7 +22,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -179,34 +178,12 @@ def prompt_selection(candidates: Sequence[FolderInfo]) -> tuple[list[FolderInfo]
 
 
 def find_megacmd_command(cmd: str) -> str | None:
-    # 1) PATH (PATHEXT により .bat も拾えることが多い)
-    found = shutil.which(cmd)
-    if found:
-        return found
-
-    # 2) Windows: よくあるインストール場所を探索
-    if sys.platform == "win32":
-        localappdata = os.environ.get("LOCALAPPDATA", "")
-        candidates = [
-            Path(localappdata) / "MEGAcmd" if localappdata else None,
-            Path(r"C:\Program Files\MEGAcmd"),
-            Path(r"C:\Program Files (x86)\MEGAcmd"),
-        ]
-        for folder in [c for c in candidates if c]:
-            for ext in [".bat", ".exe"]:
-                p = folder / f"{cmd}{ext}"
-                if p.exists():
-                    return str(p)
-    return None
+    return shutil.which(cmd)
 
 
 def run_megacmd(cmd_path: str, args: Sequence[str], timeout_sec: int = 60) -> subprocess.CompletedProcess[str]:
-    if sys.platform == "win32":
-        full_cmd = ["cmd.exe", "/c", cmd_path, *args]
-    else:
-        full_cmd = [cmd_path, *args]
     return subprocess.run(
-        full_cmd,
+        [cmd_path, *args],
         capture_output=True,
         text=True,
         timeout=timeout_sec,
