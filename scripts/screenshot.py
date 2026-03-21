@@ -19,8 +19,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 
 from .config import CONTENTS_DIR
 
@@ -115,10 +114,10 @@ def images_are_same(img1: Image.Image | None, img2: Image.Image | None, threshol
     if img1.size != img2.size:
         return False
     try:
-        arr1 = np.array(img1)
-        arr2 = np.array(img2)
-        similarity = np.sum(arr1 == arr2) / arr1.size
-        return similarity >= threshold
+        diff = ImageChops.difference(img1, img2)
+        stat = ImageStat.Stat(diff)
+        avg_diff = sum(stat.mean) / len(stat.mean)
+        return avg_diff < (1.0 - threshold) * 255
     except Exception as e:
         print(f"画像比較エラー: {e}")
         return False
