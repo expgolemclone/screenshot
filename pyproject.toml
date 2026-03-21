@@ -1,0 +1,13 @@
+[project]
+name = "books"
+version = "0.1.0"
+description = "Kindle等のスクリーンショット連続撮影 & MEGAアップロードツール"
+requires-python = ">=3.10,<4"
+
+dependencies = [
+    "pyautogui>=0.9,<1",
+    "pygetwindow>=0.0.9,<1",
+    "Pillow>=10,<12",
+    "numpy>=1.26,<3",
+    "pynput>=1.7,<2",
+]

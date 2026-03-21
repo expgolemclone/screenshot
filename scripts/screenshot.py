@@ -25,16 +25,17 @@ pyautogui.FAILSAFE = False
 # Ctrl+C (SIGINT) を無視する
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-# スクリプトの場所を基準にしたパス設定
+# プロジェクトルート (scripts/ の親) を基準にしたパス設定
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SCREENSHOT_BASE_DIR = SCRIPT_DIR
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+CONTENTS_DIR = os.path.join(PROJECT_ROOT, "contents")
 
 # 設定
 ACTION_CHOICES = {
     1: {"type": "key", "key": "left", "description": "左矢印キー"},
     2: {"type": "key", "key": "right", "description": "右矢印キー"},
 }
-SAVE_DIR = os.path.join(SCRIPT_DIR, "image")  # デフォルト値（後で更新される）
+SAVE_DIR = os.path.join(CONTENTS_DIR, "image")  # デフォルト値（後で更新される）
 MEGA_REMOTE_PATH = "/lG93yLBL"  # MEGAのアップロード先フォルダID
 
 # グローバル変数（選択後に設定）
@@ -397,7 +398,7 @@ def main():
     english_name = get_english_folder_name()
     
     # 保存先を英語名のフォルダに設定
-    SAVE_DIR = os.path.join(SCREENSHOT_BASE_DIR, english_name)
+    SAVE_DIR = os.path.join(CONTENTS_DIR, english_name)
     
     # まず操作を選択
     select_click_position()

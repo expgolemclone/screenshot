@@ -323,10 +323,11 @@ def resolve_folder_arg(base_dir: Path, folder_arg: str) -> Path:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    script_dir = Path(__file__).resolve().parent
+    project_root = Path(__file__).resolve().parent.parent
+    contents_dir = project_root / "contents"
 
     parser = argparse.ArgumentParser(description="スクショ済みフォルダを選択して MEGA にアップロードします。")
-    parser.add_argument("--base", default=str(script_dir), help="検索するベースディレクトリ (デフォルト: このスクリプトの場所)")
+    parser.add_argument("--base", default=str(contents_dir), help="検索するベースディレクトリ (デフォルト: contents/)")
     parser.add_argument("--dest", default="/book", help="MEGAのアップロード先 (デフォルト: /book)")
     parser.add_argument("--folder", help="アップロードするフォルダ名 or パス (指定時は番号選択をスキップ)")
     parser.add_argument(

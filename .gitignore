@@ -33,9 +33,7 @@ env/
 *.swo
 
 # Screenshots output
-image/
-*/
-*.png
+contents/*/
 
 # OS
 .DS_Store
