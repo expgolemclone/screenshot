@@ -127,7 +127,10 @@ def images_are_same(img1: Image.Image | None, img2: Image.Image | None, threshol
 def advance_page(config: CaptureConfig) -> None:
     """wtype でキー入力してページを1つ進める。"""
     print(f"キー入力: {config.action_key}")
-    subprocess.run(["wtype", "-k", config.action_key], timeout=5, check=False)
+    result = subprocess.run(["wtype", "-k", config.action_key], capture_output=True, text=True, timeout=5, check=False)
+    if result.returncode != 0:
+        msg = (result.stderr or result.stdout or "").strip()
+        print(f"[警告] wtype が失敗しました (exit {result.returncode}): {msg}")
     time.sleep(0.1)
 
 
@@ -203,6 +206,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Hyprland上でページ送り＆スクリーンショット（前回と同じ内容で自動終了）",
     )
     parser.add_argument("--max", type=int, default=10000, help="最大繰り返し回数（デフォルト: 10000）")
+    parser.add_argument("--delay", type=int, default=10, help="開始前の待機秒数（デフォルト: 10）")
     args = parser.parse_args(argv)
 
     _check_commands()
@@ -220,8 +224,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"保存先: {config.save_dir}")
     print(f"※前回と同じスクリーンショットになったら自動終了します")
 
-    print("\n10秒後に開始します. 対象ウィンドウをアクティブにしてください.")
-    time.sleep(10)
+    print(f"\n{args.delay}秒後に開始します. 対象ウィンドウをアクティブにしてください.")
+    time.sleep(args.delay)
 
     stop_event = threading.Event()
     watcher = threading.Thread(target=_watch_stdin, args=(stop_event,), daemon=True)
