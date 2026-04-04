@@ -1,13 +1,7 @@
 import pytest
+from PIL import Image
 
-try:
-    from scripts.screenshot import images_are_same
-    from PIL import Image
-    HAS_NUMPY = True
-except ImportError:
-    HAS_NUMPY = False
-
-pytestmark = pytest.mark.skipif(not HAS_NUMPY, reason="numpy not available in this environment")
+from scripts.screenshot import images_are_same
 
 
 class TestImagesAreSame:

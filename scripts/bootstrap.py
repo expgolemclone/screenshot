@@ -1,19 +1,21 @@
 """
 uv を使って仮想環境の作成と依存パッケージのインストールを行うセットアップスクリプト。
-使い方: python scripts/setup.py
+使い方: uv run books-setup
 """
+
+from __future__ import annotations
 
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from .config import PROJECT_ROOT
+from scripts.config import PROJECT_ROOT
 
-VERIFY_PACKAGES = ["PIL", "numpy"]
+VERIFY_PACKAGES = ["PIL"]
 
 
-def find_uv():
+def find_uv() -> str:
     uv = shutil.which("uv")
     if uv:
         return uv
@@ -23,27 +25,27 @@ def find_uv():
     )
 
 
-def run(cmd, **kwargs):
+def run(cmd: list[str]) -> subprocess.CompletedProcess[bytes]:
     print(f"  > {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=str(PROJECT_ROOT), **kwargs)
+    result = subprocess.run(cmd, cwd=str(PROJECT_ROOT))
     if result.returncode != 0:
         raise RuntimeError(f"コマンド失敗 (exit {result.returncode}): {' '.join(cmd)}")
     return result
 
 
-def step_sync(uv):
+def step_sync(uv: str) -> None:
     print("\n[1/2] 仮想環境作成 & 依存パッケージインストール...")
     run([uv, "sync"])
 
 
-def step_verify(uv):
+def step_verify(uv: str) -> None:
     print("\n[2/2] インストールを確認中...")
     imports = "; ".join(f"import {p}" for p in VERIFY_PACKAGES)
     run([uv, "run", "python", "-c", imports])
     print("全てのパッケージが正常にインストールされています")
 
 
-def main():
+def main() -> int:
     print("============================================")
     print("  セットアップ")
     print("============================================")

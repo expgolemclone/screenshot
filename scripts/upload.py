@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 スクショ済みフォルダを番号で選択して MEGA にアップロードするツール。
 
@@ -27,7 +26,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
-from .config import CONTENTS_DIR, MEGA_REMOTE_DEST
+from scripts.config import CONTENTS_DIR, MEGA_REMOTE_DEST
 
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}

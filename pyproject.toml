@@ -11,7 +11,7 @@ dependencies = [
 [project.scripts]
 books-screenshot = "scripts.screenshot:main"
 books-upload = "scripts.upload:main"
-books-setup = "scripts.setup:main"
+books-setup = "scripts.bootstrap:main"
 
 [dependency-groups]
 dev = [

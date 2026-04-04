@@ -18,10 +18,11 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Sequence
 
 from PIL import Image, ImageChops, ImageStat
 
-from .config import CONTENTS_DIR
+from scripts.config import CONTENTS_DIR
 
 
 ACTION_CHOICES = {
@@ -200,7 +201,7 @@ def get_english_folder_name() -> str:
         print("英数字、アンダースコア(_)、ハイフン(-)のみ使用可能です")
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Hyprland上でページ送り＆スクリーンショット（前回と同じ内容で自動終了）",
     )
